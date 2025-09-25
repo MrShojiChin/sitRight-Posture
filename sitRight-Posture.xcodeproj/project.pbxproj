@@ -255,6 +255,8 @@
 				DEVELOPMENT_TEAM = 3C3V6L4WD9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "SitRight needs camera access to analyze your posture and provide real-time feedback.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "SitRight needs permission to save posture analysis screenshots to your photo library.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,6 +286,8 @@
 				DEVELOPMENT_TEAM = 3C3V6L4WD9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "SitRight needs camera access to analyze your posture and provide real-time feedback.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "SitRight needs permission to save posture analysis screenshots to your photo library.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
