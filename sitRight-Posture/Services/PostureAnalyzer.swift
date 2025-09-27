@@ -11,16 +11,24 @@ import Vision
 import CoreGraphics
 import UIKit
 
+/// A class that analyzes `VNHumanBodyPoseObservation` to detect various posture issues.
 class PostureAnalyzer {
     
     // MARK: - Analysis Result
+    /// A struct containing the detailed results of a posture analysis.
     struct DetailedAnalysis {
+        /// The type of posture that was analyzed.
         let postureType: PostureType
+        /// The calculated angle for the specific posture type.
         let angle: Double
+        /// A boolean indicating if the posture is considered normal.
         let isNormal: Bool
+        /// The confidence score of the analysis, based on the visibility of key body points.
         let confidence: Float
+        /// A dictionary of the key body points used in the analysis.
         let keyPoints: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint]
         
+        /// A string describing the severity of the posture issue.
         var severity: String {
             switch postureType {
             case .forwardHead:
@@ -38,6 +46,7 @@ class PostureAnalyzer {
             }
         }
         
+        /// A recommendation to help correct the posture issue.
         var recommendation: String {
             switch postureType {
             case .forwardHead:
@@ -69,6 +78,11 @@ class PostureAnalyzer {
     }
     
     // MARK: - Main Analysis Function
+    /// Analyzes a pose observation for a specific posture type.
+    /// - Parameters:
+    ///   - observation: The `VNHumanBodyPoseObservation` to analyze.
+    ///   - type: The `PostureType` to check for.
+    /// - Returns: A `DetailedAnalysis` object if the analysis is successful, otherwise `nil`.
     func analyze(observation: VNHumanBodyPoseObservation, for type: PostureType) -> DetailedAnalysis? {
         switch type {
         case .forwardHead:
@@ -81,6 +95,9 @@ class PostureAnalyzer {
     }
     
     // MARK: - Forward Head Posture Analysis
+    /// Analyzes the observation for Forward Head Posture (FHP).
+    /// - Parameter observation: The `VNHumanBodyPoseObservation` to analyze.
+    /// - Returns: A `DetailedAnalysis` for FHP, or `nil` if key points are not visible.
     private func analyzeForwardHead(_ observation: VNHumanBodyPoseObservation) -> DetailedAnalysis? {
         do {
             // Get required points
@@ -96,7 +113,7 @@ class PostureAnalyzer {
                   leftEar.confidence > minConfidence,
                   rightShoulder.confidence > minConfidence,
                   leftShoulder.confidence > minConfidence else {
-                print("Low confidence in key points")
+                print("Low confidence in key points for FHP analysis")
                 return nil
             }
             
@@ -136,12 +153,15 @@ class PostureAnalyzer {
             )
             
         } catch {
-            print("Error getting body points: \(error)")
+            print("Error getting body points for FHP analysis: \(error)")
             return nil
         }
     }
     
     // MARK: - Rounded Shoulders Analysis
+    /// Analyzes the observation for rounded shoulders.
+    /// - Parameter observation: The `VNHumanBodyPoseObservation` to analyze.
+    /// - Returns: A `DetailedAnalysis` for rounded shoulders, or `nil` if key points are not visible.
     private func analyzeRoundedShoulders(_ observation: VNHumanBodyPoseObservation) -> DetailedAnalysis? {
         do {
             // Get required points
@@ -201,6 +221,9 @@ class PostureAnalyzer {
     }
     
     // MARK: - Back Slouch Analysis
+    /// Analyzes the observation for back slouch (thoracic kyphosis).
+    /// - Parameter observation: The `VNHumanBodyPoseObservation` to analyze.
+    /// - Returns: A `DetailedAnalysis` for back slouch, or `nil` if key points are not visible.
     private func analyzeBackSlouch(_ observation: VNHumanBodyPoseObservation) -> DetailedAnalysis? {
         do {
             // Get spine-related points
@@ -266,6 +289,12 @@ class PostureAnalyzer {
     
     // MARK: - Angle Calculations
     
+    /// Calculates the Craniovertebral Angle (CVA) to detect forward head posture.
+    /// This implementation calculates the angle of the line connecting the ear and shoulder with the vertical axis, then converts it to be relative to the horizontal axis.
+    /// - Parameters:
+    ///   - ear: The midpoint of the ears.
+    ///   - shoulder: The midpoint of the shoulders.
+    /// - Returns: The calculated angle in degrees. A normal CVA is typically >= 50 degrees.
     private func calculateCraniovertebralAngle(ear: CGPoint, shoulder: CGPoint) -> Double {
         // CVA is the angle between a vertical line through the shoulder
         // and a line connecting the ear to the shoulder
@@ -284,11 +313,16 @@ class PostureAnalyzer {
         let angleRadians = atan2(horizontalDistance, verticalDistance)
         let angleDegrees = angleRadians * 180.0 / Double.pi
         
-        // Return CVA (typically 50-60 degrees is normal)
-        // Adjust the calculation based on your specific needs
+        // Return CVA. The calculation converts the angle from the vertical to the angle from the horizontal.
         return 90.0 - angleDegrees
     }
     
+    /// Calculates the shoulder flexion angle to detect rounded shoulders.
+    /// This is a simplified estimation based on the horizontal displacement of shoulders relative to hips.
+    /// - Parameters:
+    ///   - shoulder: The midpoint of the shoulders.
+    ///   - hip: The midpoint of the hips.
+    /// - Returns: An estimated angle in degrees. A normal angle is typically <= 30 degrees.
     private func calculateShoulderFlexion(shoulder: CGPoint, hip: CGPoint) -> Double {
         // Calculate how far forward the shoulders are relative to hips
         
@@ -302,6 +336,12 @@ class PostureAnalyzer {
         return min(angle, 90.0)  // Cap at 90 degrees
     }
     
+    /// Calculates the thoracic kyphosis angle to detect back slouch.
+    /// - Parameters:
+    ///   - neck: The location of the neck joint.
+    ///   - midSpine: The midpoint of the shoulders, used as an approximation for the mid-spine.
+    ///   - lowerSpine: The midpoint of the hips, used as an approximation for the lower spine.
+    /// - Returns: The angle of the spine's curvature in degrees. A normal angle is typically <= 50 degrees.
     private func calculateThoracicKyphosis(neck: CGPoint, midSpine: CGPoint, lowerSpine: CGPoint) -> Double {
         // Calculate the angle of spine curvature
         
@@ -326,6 +366,8 @@ class PostureAnalyzer {
     
     // MARK: - Helper Functions
     
+    /// Prints the confidence and location of key joints from a pose observation for debugging purposes.
+    /// - Parameter observation: The `VNHumanBodyPoseObservation` containing the joints to print.
     func debugPrintKeyPoints(_ observation: VNHumanBodyPoseObservation) {
         let joints: [VNHumanBodyPoseObservation.JointName] = [
             .neck, .rightShoulder, .leftShoulder,

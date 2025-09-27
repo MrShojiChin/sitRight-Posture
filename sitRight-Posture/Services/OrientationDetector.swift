@@ -10,22 +10,33 @@
 import Vision
 import CoreGraphics
 
+/// A class responsible for detecting the orientation of a person from a body pose observation.
 class OrientationDetector {
     // Confidence thresholds
+    /// The minimum confidence score for a body part to be considered visible.
     private let VISIBILITY_THRESHOLD: Float = 0.5
+    /// The maximum confidence score for a body part to be considered occluded or hidden.
     private let OCCLUSION_THRESHOLD: Float = 0.1
     
+    /// An enumeration representing the possible orientations of a person.
     enum Orientation {
+        /// The person is facing sideways, showing their left profile to the camera.
         case sidewaysLeft
+        /// The person is facing sideways, showing their right profile to the camera.
         case sidewaysRight
+        /// The person is facing towards the camera.
         case front
+        /// The person is facing away from the camera.
         case back
+        /// The orientation could not be determined.
         case unknown
         
+        /// A boolean value indicating whether the orientation is sideways.
         var isSideways: Bool {
             return self == .sidewaysLeft || self == .sidewaysRight
         }
         
+        /// A string description of the orientation.
         var description: String {
             switch self {
             case .sidewaysLeft: return "Left Profile"
@@ -37,7 +48,9 @@ class OrientationDetector {
         }
     }
     
-    // Main detection function
+    /// Detects the orientation of a person from a given pose.
+    /// - Parameter pose: The `VNHumanBodyPoseObservation` to analyze.
+    /// - Returns: The detected `Orientation`.
     func detectOrientation(from pose: VNHumanBodyPoseObservation) -> Orientation {
         // Get shoulder points
         guard let leftShoulder = try? pose.recognizedPoint(.leftShoulder),
@@ -76,7 +89,9 @@ class OrientationDetector {
         }
     }
     
-    // Simplified version matching your example
+    /// A simplified check to determine if a person is sideways.
+    /// - Parameter pose: The `VNHumanBodyPoseObservation` to analyze.
+    /// - Returns: `true` if the person is sideways, `false` otherwise.
     func isPersonSideways(pose: VNHumanBodyPoseObservation) -> Bool {
         guard let leftShoulder = try? pose.recognizedPoint(.leftShoulder),
               let rightShoulder = try? pose.recognizedPoint(.rightShoulder) else {
@@ -92,7 +107,9 @@ class OrientationDetector {
         return isTurnedLeft || isTurnedRight
     }
     
-    // Get confidence score for side view
+    /// Calculates the confidence score for a side view detection.
+    /// - Parameter pose: The `VNHumanBodyPoseObservation` to analyze.
+    /// - Returns: A confidence score between 0.0 and 1.0.
     func getSideViewConfidence(pose: VNHumanBodyPoseObservation) -> Float {
         guard let leftShoulder = try? pose.recognizedPoint(.leftShoulder),
               let rightShoulder = try? pose.recognizedPoint(.rightShoulder) else {
@@ -117,7 +134,8 @@ class OrientationDetector {
         }
     }
     
-    // Improved Debug function to print all joint confidences
+    /// Prints detailed debugging information about the detected orientation and joint confidences.
+    /// - Parameter pose: The `VNHumanBodyPoseObservation` to debug.
     func debugPrintOrientation(pose: VNHumanBodyPoseObservation) {
         let orientation = detectOrientation(from: pose)
         let confidence = getSideViewConfidence(pose: pose)
@@ -142,5 +160,3 @@ class OrientationDetector {
         }
     }
 }
-
- 

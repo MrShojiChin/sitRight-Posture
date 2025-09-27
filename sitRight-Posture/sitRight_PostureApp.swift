@@ -7,8 +7,10 @@
 
 import SwiftUI
 
+/// The main entry point for the sitRight-Posture application.
 @main
 struct sitRight_PostureApp: App {
+    /// The main scene for the application, which presents the `ContentView`.
     var body: some Scene {
         WindowGroup {
             ContentView()
