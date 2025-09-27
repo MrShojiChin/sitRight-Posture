@@ -7,9 +7,12 @@
 
 import SwiftUI
 
+/// The main view of the app, which sets up the tab bar interface.
 struct ContentView: View {
+    /// The currently selected tab index.
     @State private var selectedTab = 0
     
+    /// The body of the `ContentView`, which contains the `TabView`.
     var body: some View {
         TabView(selection: $selectedTab) {
             DashboardView()
@@ -40,8 +43,9 @@ struct ContentView: View {
     }
 }
 
-// Keep your existing placeholder views
+/// A view that displays a dashboard with a summary of posture analysis and quick tips.
 struct DashboardView: View {
+    /// The body of the `DashboardView`.
     var body: some View {
         NavigationView {
             ScrollView {
@@ -85,11 +89,16 @@ struct DashboardView: View {
     }
 }
 
+/// A view for displaying a single statistic item on the dashboard.
 struct StatItem: View {
+    /// The title of the statistic.
     let title: String
+    /// The value of the statistic.
     let value: String
+    /// The color associated with the statistic's value.
     let color: Color
     
+    /// The body of the `StatItem` view.
     var body: some View {
         VStack(spacing: 5) {
             Text(value)
@@ -104,7 +113,9 @@ struct StatItem: View {
     }
 }
 
+/// A view that displays the history of posture analysis sessions.
 struct HistoryView: View {
+    /// The body of the `HistoryView`.
     var body: some View {
         NavigationView {
             List {
@@ -116,10 +127,14 @@ struct HistoryView: View {
     }
 }
 
+/// A view that allows the user to configure app settings.
 struct SettingsView: View {
+    /// A flag to enable or disable notifications, stored in `UserDefaults`.
     @AppStorage("enableNotifications") private var enableNotifications = true
+    /// The frequency of analysis in minutes, stored in `UserDefaults`.
     @AppStorage("analysisFrequency") private var analysisFrequency = 30
     
+    /// The body of the `SettingsView`.
     var body: some View {
         NavigationView {
             Form {
@@ -170,7 +185,9 @@ struct SettingsView: View {
     }
 }
 
+/// A preview provider for the `ContentView`.
 struct ContentView_Previews: PreviewProvider {
+    /// A static property that provides a preview of the `ContentView`.
     static var previews: some View {
         ContentView()
     }

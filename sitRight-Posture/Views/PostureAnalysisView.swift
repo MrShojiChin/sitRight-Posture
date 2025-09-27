@@ -10,10 +10,14 @@
 import SwiftUI
 import AVFoundation
 
+/// A view that allows users to select a type of posture analysis to perform.
 struct PostureAnalysisView: View {
+    /// The currently selected posture analysis type.
     @State private var selectedAnalysis: PostureType?
+    /// A boolean to control the presentation of the camera view.
     @State private var showCamera = false
     
+    /// The body of the `PostureAnalysisView`.
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
@@ -127,13 +131,18 @@ struct PostureAnalysisView: View {
     }
 }
 
-// Camera View with proper guides
+/// A view that displays the camera feed and guides the user for posture analysis.
 struct SimpleCameraView: View {
+    /// The type of posture to be analyzed.
     let postureType: PostureType
+    /// The presentation mode environment variable to dismiss the view.
     @Environment(\.dismiss) var dismiss
+    /// The view model that manages camera operations.
     @StateObject private var viewModel = CameraViewModel()
+    /// A boolean to control the presentation of the results view.
     @State private var showingResults = false
     
+    /// The body of the `SimpleCameraView`.
     var body: some View {
         NavigationView {
             ZStack {
@@ -238,6 +247,8 @@ struct SimpleCameraView: View {
         }
     }
     
+    /// Returns the appropriate instruction string for the selected posture type.
+    /// - Returns: A string containing user instructions.
     private func getInstructions() -> String {
         switch postureType {
         case .forwardHead:
@@ -250,10 +261,12 @@ struct SimpleCameraView: View {
     }
 }
 
-// Guide Overlay
+/// A view that displays a specific guide overlay based on the posture type.
 struct PostureGuideOverlay: View {
+    /// The type of posture for which to display a guide.
     let postureType: PostureType
     
+    /// The body of the `PostureGuideOverlay`.
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -270,10 +283,12 @@ struct PostureGuideOverlay: View {
     }
 }
 
-// FSA Guide for Rounded Shoulders (matching your diagram)
+/// A guide view for analyzing rounded shoulders (Forward Shoulder Angle).
 struct FSAGuideView: View {
+    /// The size of the parent view.
     let size: CGSize
     
+    /// The body of the `FSAGuideView`.
     var body: some View {
         ZStack {
             // Vertical reference line through C7
@@ -341,10 +356,12 @@ struct FSAGuideView: View {
     }
 }
 
-// CVA Guide for Forward Head
+/// A guide view for analyzing forward head posture (Craniovertebral Angle).
 struct CVAGuideView: View {
+    /// The size of the parent view.
     let size: CGSize
     
+    /// The body of the `CVAGuideView`.
     var body: some View {
         ZStack {
             // Horizontal line through C7
@@ -392,10 +409,12 @@ struct CVAGuideView: View {
     }
 }
 
-// Spine Guide for Back Slouch
+/// A guide view for analyzing back slouch.
 struct SpineGuideView: View {
+    /// The size of the parent view.
     let size: CGSize
     
+    /// The body of the `SpineGuideView`.
     var body: some View {
         ZStack {
             Path { path in
@@ -419,12 +438,16 @@ struct SpineGuideView: View {
     }
 }
 
-// Simple Result View
+/// A view to display the results of a posture analysis.
 struct SimpleResultView: View {
+    /// The result of the analysis.
     let result: AnalysisResult
+    /// The type of posture that was analyzed.
     let postureType: PostureType
+    /// The presentation mode environment variable to dismiss the view.
     @Environment(\.dismiss) var dismiss
     
+    /// The body of the `SimpleResultView`.
     var body: some View {
         NavigationView {
             VStack(spacing: 30) {
@@ -456,10 +479,12 @@ struct SimpleResultView: View {
     }
 }
 
-// Add the Camera Preview Layer
+/// A `UIViewRepresentable` that displays the video feed from an `AVCaptureSession`.
 struct CameraPreviewLayer: UIViewRepresentable {
+    /// The `AVCaptureSession` to display.
     let session: AVCaptureSession
     
+    /// Creates the `UIView` for the representable.
     func makeUIView(context: Context) -> UIView {
         let view = UIView(frame: .zero)
         
@@ -474,6 +499,7 @@ struct CameraPreviewLayer: UIViewRepresentable {
         return view
     }
     
+    /// Updates the `UIView`.
     func updateUIView(_ uiView: UIView, context: Context) {
         if let previewLayer = uiView.layer.sublayers?.first as? AVCaptureVideoPreviewLayer {
             DispatchQueue.main.async {
@@ -482,5 +508,3 @@ struct CameraPreviewLayer: UIViewRepresentable {
         }
     }
 }
-
-
