@@ -1,224 +1,283 @@
-//
-//  PostureAnalysisView.swift
-//  sitRight-Posture
-//
-//  Created by Ryu on 7/9/2568 BE.
-//
+// PostureAnalysisView.swift - Complete Refactored Version
+// Includes all necessary components including CameraPreviewLayer
 
-
-// PostureAnalysisView.swift - Step 1: Basic Structure
 import SwiftUI
 import AVFoundation
+import Vision
+import Combine
 
+// MARK: - Camera Preview Layer (UIViewRepresentable)
+struct CameraPreviewLayer: UIViewRepresentable {
+    let session: AVCaptureSession
+    
+    class VideoPreviewView: UIView {
+        override class var layerClass: AnyClass {
+            AVCaptureVideoPreviewLayer.self
+        }
+        
+        var videoPreviewLayer: AVCaptureVideoPreviewLayer {
+            return layer as! AVCaptureVideoPreviewLayer
+        }
+    }
+    
+    func makeUIView(context: Context) -> VideoPreviewView {
+        let view = VideoPreviewView()
+        view.backgroundColor = .black
+        view.videoPreviewLayer.session = session
+        view.videoPreviewLayer.videoGravity = .resizeAspectFill
+        
+        // Set the connection's video orientation
+        DispatchQueue.main.async {
+            view.videoPreviewLayer.connection?.videoOrientation = .portrait
+        }
+        
+        return view
+    }
+    
+    func updateUIView(_ uiView: VideoPreviewView, context: Context) {
+        // Update the video orientation if needed
+        DispatchQueue.main.async {
+            uiView.videoPreviewLayer.connection?.videoOrientation = .portrait
+        }
+    }
+}
+
+// MARK: - Main Analysis Selection View
 struct PostureAnalysisView: View {
     @State private var selectedAnalysis: PostureType?
     @State private var showCamera = false
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                // Header
-                Text("Select an area to analyze")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
-                    .padding(.top)
+            VStack(spacing: 24) {
+                // Clean header with better typography
+                Text("Select Analysis Type")
+                    .font(.system(size: 20, weight: .medium, design: .default))
+                    .foregroundColor(.primary)
+                    .padding(.top, 20)
                 
-                // Simple Cards (without complex animations first)
-                VStack(spacing: 15) {
-                    // Forward Head Card
-                    Button(action: { selectedAnalysis = .forwardHead }) {
-                        HStack {
-                            Image(systemName: "arrow.up.forward.circle.fill")
-                                .font(.largeTitle)
-                                .foregroundColor(.purple)
-                            
-                            VStack(alignment: .leading) {
-                                Text("Forward Head Posture")
-                                    .font(.headline)
-                                Text("CVA < 50°")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(10)
+                // Simplified selection cards with better touch targets
+                VStack(spacing: 16) {
+                    AnalysisCard(
+                        type: .forwardHead,
+                        icon: "arrow.up.forward.circle.fill",
+                        iconColor: .indigo,
+                        isSelected: selectedAnalysis == .forwardHead
+                    ) {
+                        selectedAnalysis = .forwardHead
                     }
                     
-                    // Rounded Shoulders Card
-                    Button(action: { selectedAnalysis = .roundedShoulder }) {
-                        HStack {
-                            Image(systemName: "arrow.left.arrow.right.circle.fill")
-                                .font(.largeTitle)
-                                .foregroundColor(.orange)
-                            
-                            VStack(alignment: .leading) {
-                                Text("Rounded Shoulders")
-                                    .font(.headline)
-                                Text("FSA > 30°")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(10)
+                    AnalysisCard(
+                        type: .roundedShoulder,
+                        icon: "arrow.left.arrow.right.circle.fill",
+                        iconColor: .orange,
+                        isSelected: selectedAnalysis == .roundedShoulder
+                    ) {
+                        selectedAnalysis = .roundedShoulder
                     }
                     
-                    // Back Slouch Card
-                    Button(action: { selectedAnalysis = .backSlouch }) {
-                        HStack {
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.largeTitle)
-                                .foregroundColor(.pink)
-                            
-                            VStack(alignment: .leading) {
-                                Text("Back Slouch")
-                                    .font(.headline)
-                                Text("Kyphosis > 50°")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(10)
+                    AnalysisCard(
+                        type: .backSlouch,
+                        icon: "arrow.down.circle.fill",
+                        iconColor: .pink,
+                        isSelected: selectedAnalysis == .backSlouch
+                    ) {
+                        selectedAnalysis = .backSlouch
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
                 
                 Spacer()
                 
-                // Selected indicator
-                if let selected = selectedAnalysis {
-                    Text("Selected: \(selected.rawValue)")
-                        .foregroundColor(.blue)
-                }
-                
-                // Start Button
+                // Clean CTA button
                 Button(action: {
                     if selectedAnalysis != nil {
                         showCamera = true
                     }
                 }) {
-                    Text("Start Analysis")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(selectedAnalysis != nil ? Color.blue : Color.gray)
-                        .cornerRadius(12)
+                    HStack {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 18))
+                        Text("Start Analysis")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(selectedAnalysis != nil ? Color.blue : Color.gray.opacity(0.3))
+                    )
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 30)
                 .disabled(selectedAnalysis == nil)
+                .animation(.easeInOut(duration: 0.2), value: selectedAnalysis)
             }
             .navigationTitle("Posture Analysis")
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .sheet(isPresented: $showCamera) {
-            // Simple placeholder for now
-            SimpleCameraView(postureType: selectedAnalysis ?? .forwardHead)
+        .fullScreenCover(isPresented: $showCamera) {
+            if let analysis = selectedAnalysis {
+                RefactoredCameraView(postureType: analysis)
+            }
         }
     }
 }
 
-// Camera View with proper guides
-struct SimpleCameraView: View {
+// MARK: - Simplified Analysis Card
+struct AnalysisCard: View {
+    let type: PostureType
+    let icon: String
+    let iconColor: Color
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                // Icon with subtle background
+                ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(0.1))
+                        .frame(width: 48, height: 48)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 24))
+                        .foregroundColor(iconColor)
+                }
+                
+                // Text content
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(type.displayName)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text(type.technicalDescription)
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Selection indicator
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(UIColor.secondarySystemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Refactored Camera View
+struct RefactoredCameraView: View {
     let postureType: PostureType
     @Environment(\.dismiss) var dismiss
     @StateObject private var viewModel = CameraViewModel()
+    
+    // UI State
     @State private var showingResults = false
+    @State private var showGuideAnimation = true
+    @State private var captureInProgress = false
+    @State private var countdownValue = 0
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Camera preview
-                CameraPreviewLayer(session: viewModel.session)
-                    .edgesIgnoringSafeArea(.all)
+        ZStack {
+            // Camera preview layer
+            CameraPreviewLayer(session: viewModel.session)
+                .ignoresSafeArea()
+            
+            // Gradient overlay for better text visibility
+            VStack {
+                // Top gradient for header visibility
+                LinearGradient(
+                    colors: [Color.black.opacity(0.7), Color.clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 180)
                 
-                // Dark overlay for better visibility
-                Color.black.opacity(0.2)
-                    .edgesIgnoringSafeArea(.all)
+                Spacer()
                 
-                VStack {
-                    // Top bar
-                    HStack {
-                        Button(action: {
-                            viewModel.stopSession()
-                            dismiss()
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.title)
-                                .foregroundColor(.white)
-                                .background(Circle().fill(Color.black.opacity(0.5)))
-                        }
-                        
-                        Spacer()
-                        
-                        Text(postureType.rawValue)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.black.opacity(0.5))
-                            .cornerRadius(8)
+                // Bottom gradient for controls visibility
+                LinearGradient(
+                    colors: [Color.clear, Color.black.opacity(0.7)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 200)
+            }
+            .ignoresSafeArea()
+            
+            // Main UI overlay
+            VStack(spacing: 0) {
+                // Header with proper text visibility
+                HeaderView(
+                    postureType: postureType,
+                    onClose: {
+                        viewModel.stopSession()
+                        dismiss()
                     }
-                    .padding()
-                    
-                    Spacer()
-                    
-                    // Add the guide overlay based on posture type
-                    PostureGuideOverlay(postureType: postureType)
-                        .frame(height: 300)
-                    
-                    Spacer()
-                    
-                    // Instructions
-                    VStack(spacing: 10) {
-                        HStack {
-                            Image(systemName: "person.fill.turn.right")
-                            Text("TURN SIDEWAYS")
-                                .fontWeight(.bold)
+                )
+                .padding(.top, 60)
+                
+                // Minimal guide overlay
+                if showGuideAnimation {
+                    MinimalGuideView(postureType: postureType)
+                        .transition(.opacity)
+                        .onAppear {
+                            // Auto-hide guide after 3 seconds
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                withAnimation(.easeOut(duration: 0.5)) {
+                                    showGuideAnimation = false
+                                }
+                            }
                         }
-                        .foregroundColor(.yellow)
-                        .padding(10)
-                        .background(Color.black.opacity(0.8))
-                        .cornerRadius(8)
-                        
-                        Text(getInstructions())
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                    }
+                } else {
+                    // Positioning indicator when guide is hidden
+                    PositioningIndicator(postureType: postureType)
+                        .transition(.opacity)
+                }
+                
+                Spacer()
+                
+                // Instructions and capture controls
+                VStack(spacing: 20) {
+                    // Clear instruction text with proper backdrop
+                    InstructionView(
+                        postureType: postureType,
+                        isPositioned: viewModel.isSideView
+                    )
                     
-                    // Analyze button
-                    Button(action: {
-                        print("Analyzing: \(postureType.rawValue)")
-                        viewModel.performAnalysis()
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.white)
-                                .frame(width: 70, height: 70)
-                            
-                            Circle()
-                                .stroke(Color.white, lineWidth: 3)
-                                .frame(width: 80, height: 80)
-                            
-                            Image(systemName: "camera.fill")
-                                .font(.title)
-                                .foregroundColor(.black)
+                    // Capture button
+                    CaptureButton(
+                        isEnabled: !captureInProgress,
+                        action: {
+                            performCapture()
                         }
-                    }
-                    .padding()
+                    )
+                    .padding(.bottom, 40)
                 }
             }
-            .navigationBarHidden(true)
+            
+            // Countdown overlay
+            if countdownValue > 0 {
+                CountdownView(value: countdownValue)
+            }
         }
+        .preferredColorScheme(.dark) // Force dark mode for better camera visibility
         .onAppear {
             viewModel.setAnalysisType(postureType)
             viewModel.startSession()
@@ -226,201 +285,318 @@ struct SimpleCameraView: View {
         .onDisappear {
             viewModel.stopSession()
         }
-        .onReceive(viewModel.$analysisResult) { result in
-            if result != nil {
+        .onChange(of: viewModel.analysisResult) { _, newValue in
+            if newValue != nil {
                 showingResults = true
             }
         }
         .sheet(isPresented: $showingResults) {
             if let result = viewModel.analysisResult {
-                SimpleResultView(result: result, postureType: postureType)
+                ResultsView(result: result, postureType: postureType)
             }
         }
     }
     
-    private func getInstructions() -> String {
-        switch postureType {
-        case .forwardHead:
-            return "Position ear and neck in the circles"
-        case .roundedShoulder:
-            return "Align C7 and shoulder with markers"
-        case .backSlouch:
-            return "Keep spine visible from neck to hip"
+    private func performCapture() {
+        captureInProgress = true
+        countdownValue = 3
+        
+        // Countdown timer
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            if countdownValue > 1 {
+                countdownValue -= 1
+            } else {
+                timer.invalidate()
+                countdownValue = 0
+                viewModel.performAnalysis()
+                captureInProgress = false
+            }
         }
     }
 }
 
-// Guide Overlay
-struct PostureGuideOverlay: View {
+// MARK: - Header View Component
+struct HeaderView: View {
     let postureType: PostureType
+    let onClose: () -> Void
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            // Selected analysis type - TOP LEFT as requested
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Analyzing")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+                
+                Text(postureType.displayName)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.white)
+                    
+                Text(postureType.technicalDescription)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.black.opacity(0.5))
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            
+            Spacer()
+            
+            // Close button
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(Color.black.opacity(0.5))
+                    )
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+// MARK: - Minimal Guide View
+struct MinimalGuideView: View {
+    let postureType: PostureType
+    @State private var animateGuide = false
     
     var body: some View {
         GeometryReader { geometry in
             ZStack {
+                // Subtle positioning guides
                 switch postureType {
                 case .forwardHead:
-                    CVAGuideView(size: geometry.size)
+                    ForwardHeadGuide(size: geometry.size, animate: animateGuide)
                 case .roundedShoulder:
-                    FSAGuideView(size: geometry.size)
+                    ShoulderGuide(size: geometry.size, animate: animateGuide)
                 case .backSlouch:
-                    SpineGuideView(size: geometry.size)
+                    SpineGuide(size: geometry.size, animate: animateGuide)
                 }
             }
         }
-    }
-}
-
-// FSA Guide for Rounded Shoulders (matching your diagram)
-struct FSAGuideView: View {
-    let size: CGSize
-    
-    var body: some View {
-        ZStack {
-            // Vertical reference line through C7
-            Path { path in
-                path.move(to: CGPoint(x: size.width * 0.5, y: 0))
-                path.addLine(to: CGPoint(x: size.width * 0.5, y: size.height))
+        .frame(height: 300)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                animateGuide = true
             }
-            .stroke(Color.blue.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [10, 5]))
-            
-            // C7 marker
-            Circle()
-                .fill(Color.orange)
-                .frame(width: 20, height: 20)
-                .position(x: size.width * 0.5, y: size.height * 0.4)
-            
-            Text("C7")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .padding(4)
-                .background(Color.orange)
-                .cornerRadius(4)
-                .position(x: size.width * 0.5 - 40, y: size.height * 0.4)
-            
-            // Acromion marker
-            Circle()
-                .fill(Color.orange)
-                .frame(width: 20, height: 20)
-                .position(x: size.width * 0.65, y: size.height * 0.5)
-            
-            Text("Shoulder")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .padding(4)
-                .background(Color.orange)
-                .cornerRadius(4)
-                .position(x: size.width * 0.65 + 50, y: size.height * 0.5)
-            
-            // FSA angle line
-            Path { path in
-                path.move(to: CGPoint(x: size.width * 0.5, y: size.height * 0.4))
-                path.addLine(to: CGPoint(x: size.width * 0.65, y: size.height * 0.5))
-            }
-            .stroke(Color.red, lineWidth: 2)
-            
-            // Angle arc
-            Path { path in
-                path.addArc(
-                    center: CGPoint(x: size.width * 0.5, y: size.height * 0.4),
-                    radius: 40,
-                    startAngle: .degrees(270),
-                    endAngle: .degrees(315),
-                    clockwise: false
-                )
-            }
-            .stroke(Color.red, lineWidth: 2)
-            
-            Text("FSA")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(.red)
-                .position(x: size.width * 0.5 + 25, y: size.height * 0.35)
         }
     }
 }
 
-// CVA Guide for Forward Head
-struct CVAGuideView: View {
+// MARK: - Simplified Guide Components
+struct ForwardHeadGuide: View {
     let size: CGSize
+    let animate: Bool
     
     var body: some View {
         ZStack {
-            // Horizontal line through C7
-            Path { path in
-                path.move(to: CGPoint(x: 0, y: size.height * 0.5))
-                path.addLine(to: CGPoint(x: size.width, y: size.height * 0.5))
-            }
-            .stroke(Color.yellow.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [10, 5]))
-            
-            // C7/Neck marker
+            // Ear position indicator
             Circle()
-                .fill(Color.purple)
-                .frame(width: 20, height: 20)
-                .position(x: size.width * 0.4, y: size.height * 0.5)
-            
-            Text("Neck")
-                .font(.caption)
-                .foregroundColor(.white)
-                .padding(4)
-                .background(Color.purple)
-                .cornerRadius(4)
-                .position(x: size.width * 0.4, y: size.height * 0.6)
-            
-            // Ear marker
-            Circle()
-                .fill(Color.purple)
-                .frame(width: 20, height: 20)
+                .stroke(Color.white.opacity(0.5), lineWidth: 2)
+                .frame(width: 60, height: 60)
                 .position(x: size.width * 0.6, y: size.height * 0.35)
+                .overlay(
+                    Text("EAR")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                        .position(x: size.width * 0.6, y: size.height * 0.35)
+                )
             
-            Text("Ear")
-                .font(.caption)
-                .foregroundColor(.white)
-                .padding(4)
-                .background(Color.purple)
-                .cornerRadius(4)
-                .position(x: size.width * 0.6, y: size.height * 0.25)
+            // Neck position indicator
+            Circle()
+                .stroke(Color.white.opacity(0.5), lineWidth: 2)
+                .frame(width: 60, height: 60)
+                .position(x: size.width * 0.4, y: size.height * 0.5)
+                .overlay(
+                    Text("NECK")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                        .position(x: size.width * 0.4, y: size.height * 0.5)
+                )
             
-            // CVA angle line
+            // Connection line
             Path { path in
                 path.move(to: CGPoint(x: size.width * 0.4, y: size.height * 0.5))
                 path.addLine(to: CGPoint(x: size.width * 0.6, y: size.height * 0.35))
             }
-            .stroke(Color.green, lineWidth: 2)
+            .stroke(
+                Color.white.opacity(animate ? 0.3 : 0.1),
+                style: StrokeStyle(lineWidth: 1, dash: [5, 5])
+            )
         }
     }
 }
 
-// Spine Guide for Back Slouch
-struct SpineGuideView: View {
+struct ShoulderGuide: View {
     let size: CGSize
+    let animate: Bool
     
     var body: some View {
         ZStack {
-            Path { path in
-                path.move(to: CGPoint(x: size.width * 0.5, y: size.height * 0.2))
-                path.addCurve(
-                    to: CGPoint(x: size.width * 0.5, y: size.height * 0.8),
-                    control1: CGPoint(x: size.width * 0.45, y: size.height * 0.4),
-                    control2: CGPoint(x: size.width * 0.45, y: size.height * 0.6)
-                )
-            }
-            .stroke(Color.pink, style: StrokeStyle(lineWidth: 3, dash: [10, 5]))
+            // Vertical reference line
+            Rectangle()
+                .fill(Color.white.opacity(0.2))
+                .frame(width: 2, height: size.height)
+                .position(x: size.width * 0.5, y: size.height * 0.5)
             
-            Text("Align spine with curve")
-                .font(.caption)
-                .foregroundColor(.white)
-                .padding(8)
-                .background(Color.pink)
-                .cornerRadius(8)
-                .position(x: size.width * 0.5, y: size.height * 0.9)
+            // Shoulder position
+            Circle()
+                .stroke(Color.white.opacity(0.5), lineWidth: 2)
+                .frame(width: 80, height: 80)
+                .position(x: size.width * 0.5, y: size.height * 0.5)
+                .scaleEffect(animate ? 1.1 : 1.0)
         }
     }
 }
 
-// Simple Result View
-struct SimpleResultView: View {
+struct SpineGuide: View {
+    let size: CGSize
+    let animate: Bool
+    
+    var body: some View {
+        // Spine alignment curve
+        Path { path in
+            path.move(to: CGPoint(x: size.width * 0.5, y: size.height * 0.1))
+            path.addCurve(
+                to: CGPoint(x: size.width * 0.5, y: size.height * 0.9),
+                control1: CGPoint(x: size.width * 0.48, y: size.height * 0.3),
+                control2: CGPoint(x: size.width * 0.48, y: size.height * 0.7)
+            )
+        }
+        .stroke(
+            Color.white.opacity(animate ? 0.5 : 0.3),
+            style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10, 5])
+        )
+    }
+}
+
+// MARK: - Positioning Indicator (shows after guide fades)
+struct PositioningIndicator: View {
+    let postureType: PostureType
+    
+    var body: some View {
+        VStack {
+            Image(systemName: "person.fill.turn.right")
+                .font(.system(size: 40))
+                .foregroundColor(.white.opacity(0.4))
+                .padding(.top, 100)
+            
+            Text("Turn sideways to camera")
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.4))
+            
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Instruction View
+struct InstructionView: View {
+    let postureType: PostureType
+    let isPositioned: Bool
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            // Status indicator
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(isPositioned ? Color.green : Color.yellow)
+                    .frame(width: 8, height: 8)
+                
+                Text(isPositioned ? "Ready to capture" : "Position yourself")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(Color.black.opacity(0.5))
+            )
+            
+            // Detailed instruction
+            Text(getInstruction())
+                .font(.system(size: 16))
+                .foregroundColor(.white.opacity(0.9))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+        }
+    }
+    
+    private func getInstruction() -> String {
+        switch postureType {
+        case .forwardHead:
+            return "Stand sideways with ear and neck visible"
+        case .roundedShoulder:
+            return "Turn to show your shoulder profile"
+        case .backSlouch:
+            return "Position to show your spine from side"
+        }
+    }
+}
+
+// MARK: - Capture Button
+struct CaptureButton: View {
+    let isEnabled: Bool
+    let action: () -> Void
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                // Outer ring
+                Circle()
+                    .stroke(Color.white, lineWidth: 4)
+                    .frame(width: 80, height: 80)
+                
+                // Inner button
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 65, height: 65)
+                    .scaleEffect(isPressed ? 0.9 : 1.0)
+                
+                // Camera icon
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.black)
+            }
+        }
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1.0 : 0.5)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity,
+                           pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+}
+
+// MARK: - Countdown View
+struct CountdownView: View {
+    let value: Int
+    
+    var body: some View {
+        Text("\(value)")
+            .font(.system(size: 120, weight: .bold, design: .rounded))
+            .foregroundColor(.white)
+            .shadow(color: .black.opacity(0.5), radius: 10)
+            .scaleEffect(1.5)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: value)
+    }
+}
+
+// MARK: - Results View
+struct ResultsView: View {
     let result: AnalysisResult
     let postureType: PostureType
     @Environment(\.dismiss) var dismiss
@@ -428,59 +604,155 @@ struct SimpleResultView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 30) {
-                Image(systemName: result.isNormal ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                // Result icon
+                Image(systemName: result.isNormal ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .font(.system(size: 80))
-                    .foregroundColor(result.isNormal ? .green : .orange)
+                    .foregroundColor(result.statusColor)
+                    .padding(.top, 40)
                 
-                Text(result.status)
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Text("Angle: \(Int(result.angle))°")
-                    .font(.title)
-                
-                Text("Confidence: \(Int(result.confidence * 100))%")
-                    .foregroundColor(.secondary)
-                
-                Button("Done") {
-                    dismiss()
+                // Status
+                VStack(spacing: 8) {
+                    Text(result.status)
+                        .font(.system(size: 32, weight: .bold))
+                    
+                    Text(postureType.displayName)
+                        .font(.system(size: 18))
+                        .foregroundColor(.secondary)
                 }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
+                
+                // Metrics
+                VStack(spacing: 20) {
+                    MetricRow(
+                        label: "Measured Angle",
+                        value: "\(Int(result.angle))°",
+                        color: result.statusColor
+                    )
+                    
+                    MetricRow(
+                        label: "Normal Range",
+                        value: postureType.normalRange,
+                        color: .secondary
+                    )
+                    
+                    MetricRow(
+                        label: "Confidence",
+                        value: "\(Int(result.confidence * 100))%",
+                        color: .blue
+                    )
+                }
+                .padding(.horizontal, 40)
+                
+                Spacer()
+                
+                // Recommendation
+                VStack(spacing: 16) {
+                    Text("Recommendation")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    
+                    Text(getRecommendation())
+                        .font(.system(size: 15))
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 30)
+                }
+                
+                Spacer()
+                
+                // Action buttons
+                HStack(spacing: 20) {
+                    Button(action: { dismiss() }) {
+                        Text("Done")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(Color.blue)
+                            .cornerRadius(12)
+                    }
+                }
+                .padding(.horizontal, 30)
+                .padding(.bottom, 30)
             }
-            .padding()
-            .navigationTitle("Results")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+    }
+    
+    private func getRecommendation() -> String {
+        if result.isNormal {
+            return "Your \(postureType.displayName.lowercased()) is within the normal range. Keep maintaining good posture!"
+        } else {
+            switch postureType {
+            case .forwardHead:
+                return "Try chin tucks and ensure your screen is at eye level to improve head positioning."
+            case .roundedShoulder:
+                return "Practice shoulder blade squeezes and doorway stretches to correct shoulder position."
+            case .backSlouch:
+                return "Strengthen your core and consider using lumbar support while sitting."
+            }
         }
     }
 }
 
-// Add the Camera Preview Layer
-struct CameraPreviewLayer: UIViewRepresentable {
-    let session: AVCaptureSession
+// MARK: - Metric Row Component
+struct MetricRow: View {
+    let label: String
+    let value: String
+    let color: Color
     
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
-        
-        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspectFill
-        view.layer.addSublayer(previewLayer)
-        
-        DispatchQueue.main.async {
-            previewLayer.frame = view.bounds
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 15))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(color)
         }
-        
-        return view
-    }
-    
-    func updateUIView(_ uiView: UIView, context: Context) {
-        if let previewLayer = uiView.layer.sublayers?.first as? AVCaptureVideoPreviewLayer {
-            DispatchQueue.main.async {
-                previewLayer.frame = uiView.bounds
-            }
-        }
+        .padding(.vertical, 8)
     }
 }
 
-
+// MARK: - Extended PostureType with Display Properties
+extension PostureType {
+    var displayName: String {
+        switch self {
+        case .forwardHead:
+            return "Forward Head"
+        case .roundedShoulder:
+            return "Rounded Shoulders"
+        case .backSlouch:
+            return "Back Slouch"
+        }
+    }
+    
+    var technicalDescription: String {
+        switch self {
+        case .forwardHead:
+            return "CVA < 50°"
+        case .roundedShoulder:
+            return "FSA > 30°"
+        case .backSlouch:
+            return "Kyphosis > 50°"
+        }
+    }
+    
+    var normalRange: String {
+        switch self {
+        case .forwardHead:
+            return "≥ 50°"
+        case .roundedShoulder:
+            return "≤ 30°"
+        case .backSlouch:
+            return "≤ 50°"
+        }
+    }
+}
