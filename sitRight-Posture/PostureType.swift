@@ -15,9 +15,12 @@
 
 import SwiftUI
 
-// MARK: - Posture Type (Single definition for entire app)
+/// An enumeration representing the different types of posture issues that can be analyzed.
 enum PostureType: String, CaseIterable {
+    /// Represents forward head posture, where the head juts forward.
     case forwardHead = "Forward Head Posture"
+    /// Represents rounded shoulders, where the shoulders are hunched forward.
     case roundedShoulder = "Rounded Shoulders"
+    /// Represents back slouch, or excessive thoracic kyphosis.
     case backSlouch = "Back Slouch"
 }

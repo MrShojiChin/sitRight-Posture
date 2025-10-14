@@ -11,26 +11,38 @@ import SwiftUI
 import Vision
 import Combine
 
-// Single, comprehensive Camera Manager
+/// Manages the camera session, captures video frames, and performs pose detection.
 class CameraManager: NSObject, ObservableObject {
     // MARK: - Published Properties
+    /// A boolean indicating whether the user has granted camera permission.
     @Published var permissionGranted = false
+    /// A boolean indicating whether the camera session is currently running.
     @Published var isSessionRunning = false
+    /// The current video frame being processed.
     @Published var currentFrame: CVPixelBuffer?
+    /// The most recently detected human body pose observation.
     @Published var detectedPose: VNHumanBodyPoseObservation?
     
     // MARK: - Camera Properties
+    /// The capture session that manages the flow of data from the camera.
     let session = AVCaptureSession()
+    /// The video data output that processes video frames.
     private let videoOutput = AVCaptureVideoDataOutput()
+    /// The dispatch queue on which video frames are processed.
     private let videoQueue = DispatchQueue(label: "videoQueue", qos: .userInitiated)
     
     // MARK: - Analysis Properties
+    /// The current type of posture analysis to be performed.
     private var currentAnalysisType: PostureType?
+    /// The request to detect a human body pose in an image.
     private var poseRequest: VNDetectHumanBodyPoseRequest?
+    /// The analyzer responsible for calculating posture metrics from a pose.
     private let postureAnalyzer = PostureAnalyzer()
-    private let orientationDetector = OrientationDetector()  // Add orientation detector
+    /// The detector responsible for determining device orientation.
+    private let orientationDetector = OrientationDetector()
     
     // MARK: - Initialization
+    /// Initializes a new `CameraManager` instance.
     override init() {
         super.init()
         checkPermission()
@@ -38,6 +50,7 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     // MARK: - Permission Management
+    /// Checks the current authorization status for video capture.
     func checkPermission() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -50,6 +63,7 @@ class CameraManager: NSObject, ObservableObject {
         }
     }
     
+    /// Requests permission from the user to access the camera.
     func requestPermission() {
         AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
             DispatchQueue.main.async {
@@ -62,6 +76,7 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     // MARK: - Camera Setup
+    /// Configures the camera input and video output for the capture session.
     private func setupCamera() {
         session.beginConfiguration()
         session.sessionPreset = .high
@@ -105,6 +120,7 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     // MARK: - Pose Detection Setup
+    /// Sets up the Vision request for human body pose detection.
     private func setupPoseDetection() {
         poseRequest = VNDetectHumanBodyPoseRequest { [weak self] request, error in
             if let error = error {
@@ -123,6 +139,7 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     // MARK: - Session Control
+    /// Starts the camera capture session.
     func startSession() {
         guard permissionGranted else {
             checkPermission()
@@ -139,6 +156,7 @@ class CameraManager: NSObject, ObservableObject {
         }
     }
     
+    /// Stops the camera capture session.
     func stopSession() {
         if session.isRunning {
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -151,11 +169,15 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     // MARK: - Analysis Type
+    /// Sets the type of posture analysis to be performed.
+    /// - Parameter type: The `PostureType` to analyze.
     func setAnalysisType(_ type: PostureType) {
         currentAnalysisType = type
     }
     
     // MARK: - Pose Analysis
+    /// Analyzes the detected pose for the specified posture type.
+    /// - Parameter observation: The `VNHumanBodyPoseObservation` to analyze.
     private func analyzePose(_ observation: VNHumanBodyPoseObservation) {
         guard let analysisType = currentAnalysisType else { return }
         
@@ -188,7 +210,11 @@ class CameraManager: NSObject, ObservableObject {
         }
     }
     
-    // Helper function for angle calculation (if still needed elsewhere)
+    /// Calculates the Craniovertebral Angle (CVA).
+    /// - Parameters:
+    ///   - ear: The position of the ear.
+    ///   - shoulder: The position of the shoulder.
+    /// - Returns: The calculated CVA in degrees.
     private func calculateCVA(ear: CGPoint, shoulder: CGPoint) -> Double {
         let deltaX = abs(ear.x - shoulder.x)
         let deltaY = abs(ear.y - shoulder.y)
@@ -199,6 +225,11 @@ class CameraManager: NSObject, ObservableObject {
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
+    /// Called when a new video frame is captured.
+    /// - Parameters:
+    ///   - output: The capture output that produced the frame.
+    ///   - sampleBuffer: The `CMSampleBuffer` containing the video frame.
+    ///   - connection: The connection from which the video frame was received.
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
@@ -221,6 +252,8 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
 // MARK: - Notification Names
 extension Notification.Name {
+    /// A notification posted when posture analysis is complete.
     static let postureAnalysisComplete = Notification.Name("postureAnalysisComplete")
+    /// A notification posted when the device orientation is incorrect for analysis.
     static let orientationIncorrect = Notification.Name("orientationIncorrect")
 }
