@@ -1,17 +1,17 @@
 //
-//  CameraManager.swift
+//  CameraManager_Improved.swift
 //  sitRight-Posture
 //
-//  Created by Ryu on 7/9/2568 BE.
+//  Improved version with better image orientation handling
 //
 
-// CameraManager.swift - Put this in Services folder
 import AVFoundation
 import SwiftUI
 import Vision
 import Combine
+import UIKit
 
-/// Manages the camera session, captures video frames, and performs pose detection.
+/// Manages the camera session, captures single frames, and performs pose detection.
 class CameraManager: NSObject, ObservableObject {
     // MARK: - Published Properties
     /// A boolean indicating whether the user has granted camera permission.
@@ -20,8 +20,8 @@ class CameraManager: NSObject, ObservableObject {
     @Published var isSessionRunning = false
     /// The current video frame being processed.
     @Published var currentFrame: CVPixelBuffer?
-    /// The most recently detected human body pose observation.
-    @Published var detectedPose: VNHumanBodyPoseObservation?
+    /// The analysis result with captured image
+    @Published var analysisResultWithImage: AnalysisResultWithImage?
     
     // MARK: - Camera Properties
     /// The capture session that manages the flow of data from the camera.
@@ -30,23 +30,63 @@ class CameraManager: NSObject, ObservableObject {
     private let videoOutput = AVCaptureVideoDataOutput()
     /// The dispatch queue on which video frames are processed.
     private let videoQueue = DispatchQueue(label: "videoQueue", qos: .userInitiated)
+    /// The current device orientation
+    private var currentOrientation: AVCaptureVideoOrientation = .portrait
     
     // MARK: - Analysis Properties
     /// The current type of posture analysis to be performed.
     private var currentAnalysisType: PostureType?
-    /// The request to detect a human body pose in an image.
-    private var poseRequest: VNDetectHumanBodyPoseRequest?
     /// The analyzer responsible for calculating posture metrics from a pose.
     private let postureAnalyzer = PostureAnalyzer()
     /// The detector responsible for determining device orientation.
     private let orientationDetector = OrientationDetector()
+    
+    // MARK: - Capture Properties
+    /// Flag to indicate if we should capture the next frame
+    private var shouldCaptureNextFrame = false
+    /// Completion handler for when capture and analysis is complete
+    private var captureCompletion: ((Bool) -> Void)?
     
     // MARK: - Initialization
     /// Initializes a new `CameraManager` instance.
     override init() {
         super.init()
         checkPermission()
-        setupPoseDetection()
+        setupOrientationObserver()
+    }
+    
+    // MARK: - Orientation Setup
+    private func setupOrientationObserver() {
+        // Observe device orientation changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(orientationChanged),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func orientationChanged() {
+        // Update video orientation based on device orientation
+        switch UIDevice.current.orientation {
+        case .portrait:
+            currentOrientation = .portrait
+        case .portraitUpsideDown:
+            currentOrientation = .portraitUpsideDown
+        case .landscapeLeft:
+            currentOrientation = .landscapeRight
+        case .landscapeRight:
+            currentOrientation = .landscapeLeft
+        default:
+            break
+        }
+        
+        // Update connection orientation
+        if let connection = videoOutput.connection(with: .video) {
+            if connection.isVideoOrientationSupported {
+                connection.videoOrientation = currentOrientation
+            }
+        }
     }
     
     // MARK: - Permission Management
@@ -112,30 +152,11 @@ class CameraManager: NSObject, ObservableObject {
             // Configure connection
             if let connection = videoOutput.connection(with: .video) {
                 connection.isVideoMirrored = true
-                connection.videoOrientation = .portrait
+                connection.videoOrientation = currentOrientation
             }
         }
         
         session.commitConfiguration()
-    }
-    
-    // MARK: - Pose Detection Setup
-    /// Sets up the Vision request for human body pose detection.
-    private func setupPoseDetection() {
-        poseRequest = VNDetectHumanBodyPoseRequest { [weak self] request, error in
-            if let error = error {
-                print("Pose detection error: \(error)")
-                return
-            }
-            
-            guard let observations = request.results as? [VNHumanBodyPoseObservation],
-                  let observation = observations.first else { return }
-            
-            DispatchQueue.main.async {
-                self?.detectedPose = observation
-                self?.analyzePose(observation)
-            }
-        }
     }
     
     // MARK: - Session Control
@@ -175,77 +196,161 @@ class CameraManager: NSObject, ObservableObject {
         currentAnalysisType = type
     }
     
-    // MARK: - Pose Analysis
-    /// Analyzes the detected pose for the specified posture type.
-    /// - Parameter observation: The `VNHumanBodyPoseObservation` to analyze.
-    private func analyzePose(_ observation: VNHumanBodyPoseObservation) {
+    // MARK: - Single Frame Capture
+    /// Captures a single frame and performs posture analysis on it
+    /// - Parameter completion: Callback when capture and analysis is complete
+    func captureAndAnalyze(completion: @escaping (Bool) -> Void) {
+        guard currentAnalysisType != nil else {
+            completion(false)
+            return
+        }
+        
+        shouldCaptureNextFrame = true
+        captureCompletion = completion
+    }
+    
+    // MARK: - Frame Analysis
+    /// Analyzes a captured frame for posture
+    private func analyzeFrame(_ pixelBuffer: CVPixelBuffer) {
         guard let analysisType = currentAnalysisType else { return }
         
-        // Use the real analyzer
-        if let analysis = postureAnalyzer.analyze(observation: observation, for: analysisType) {
-            // Post notification with detailed result
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(
-                    name: .postureAnalysisComplete,
-                    object: nil,
-                    userInfo: [
-                        "angle": analysis.angle,
-                        "type": analysisType,
-                        "isNormal": analysis.isNormal,
-                        "confidence": analysis.confidence,
-                        "recommendation": analysis.recommendation
-                    ]
-                )
+        // Convert pixel buffer to UIImage for display with correct orientation
+        let uiImage = pixelBufferToUIImage(pixelBuffer)
+        
+        // Create pose detection request
+        let request = VNDetectHumanBodyPoseRequest { [weak self] request, error in
+            if let error = error {
+                print("Pose detection error: \(error)")
+                self?.captureCompletion?(false)
+                return
             }
             
-            // Debug print
-            print("Analysis Result: \(analysisType.rawValue)")
-            print("Angle: \(analysis.angle)°")
-            print("Normal: \(analysis.isNormal)")
-            print("Confidence: \(analysis.confidence)")
-            print("Recommendation: \(analysis.recommendation)")
+            guard let observations = request.results as? [VNHumanBodyPoseObservation],
+                  let observation = observations.first else {
+                print("No pose detected")
+                self?.captureCompletion?(false)
+                return
+            }
             
-            // Debug print key points
-            postureAnalyzer.debugPrintKeyPoints(observation)
+            // Analyze the pose
+            if let analysis = self?.postureAnalyzer.analyze(observation: observation, for: analysisType) {
+                // Create result with image
+                let result = AnalysisResultWithImage(
+                    capturedImage: uiImage,
+                    postureType: analysisType,
+                    angle: analysis.angle,
+                    isNormal: analysis.isNormal,
+                    confidence: Double(analysis.confidence),
+                    poseObservation: observation,
+                    recommendation: analysis.recommendation
+                )
+                
+                DispatchQueue.main.async {
+                    self?.analysisResultWithImage = result
+                    self?.captureCompletion?(true)
+                    
+                    // Post notification for backward compatibility
+                    NotificationCenter.default.post(
+                        name: .postureAnalysisComplete,
+                        object: nil,
+                        userInfo: [
+                            "angle": analysis.angle,
+                            "type": analysisType,
+                            "isNormal": analysis.isNormal,
+                            "confidence": analysis.confidence,
+                            "recommendation": analysis.recommendation,
+                            "image": uiImage,
+                            "result": result
+                        ]
+                    )
+                }
+                
+                // Debug print
+                print("Analysis Complete:")
+                print("- Type: \(analysisType.rawValue)")
+                print("- Angle: \(analysis.angle)°")
+                print("- Normal: \(analysis.isNormal)")
+                print("- Confidence: \(analysis.confidence)")
+                print("- Severity: \(analysis.severity)")
+            } else {
+                self?.captureCompletion?(false)
+            }
+        }
+        
+        // Perform pose detection with correct orientation
+        let handler = VNImageRequestHandler(
+            cvPixelBuffer: pixelBuffer,
+            orientation: .upMirrored,  // For front camera with mirroring
+            options: [:]
+        )
+        
+        do {
+            try handler.perform([request])
+        } catch {
+            print("Failed to perform pose detection: \(error)")
+            captureCompletion?(false)
         }
     }
     
-    /// Calculates the Craniovertebral Angle (CVA).
-    /// - Parameters:
-    ///   - ear: The position of the ear.
-    ///   - shoulder: The position of the shoulder.
-    /// - Returns: The calculated CVA in degrees.
-    private func calculateCVA(ear: CGPoint, shoulder: CGPoint) -> Double {
-        let deltaX = abs(ear.x - shoulder.x)
-        let deltaY = abs(ear.y - shoulder.y)
-        let angleRadians = atan2(deltaX, deltaY)
-        return angleRadians * 180.0 / Double.pi
+    // MARK: - Helper Methods
+    /// Converts CVPixelBuffer to UIImage with correct orientation
+    private func pixelBufferToUIImage(_ pixelBuffer: CVPixelBuffer) -> UIImage {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        
+        // Apply transformations for front camera
+        // The front camera is mirrored, and we need to handle the rotation
+        let orientedImage = ciImage
+            .oriented(.upMirrored)  // Handle front camera mirroring
+        
+        let context = CIContext(options: nil)
+        guard let cgImage = context.createCGImage(orientedImage, from: orientedImage.extent) else {
+            return UIImage()
+        }
+        
+        // Create the final UIImage
+        return UIImage(cgImage: cgImage)
+    }
+    
+    /// Alternative method using UIImage orientation
+    private func pixelBufferToUIImageAlternative(_ pixelBuffer: CVPixelBuffer) -> UIImage {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let context = CIContext(options: nil)
+        
+        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
+            return UIImage()
+        }
+        
+        // For front camera in portrait mode
+        // We need to handle both the mirroring and potential rotation
+        // Using .leftMirrored handles both the horizontal flip and 90-degree rotation
+        return UIImage(cgImage: cgImage, scale: 1.0, orientation: .leftMirrored)
+    }
+    
+    /// Clears the current analysis result
+    func clearAnalysisResult() {
+        analysisResultWithImage = nil
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     /// Called when a new video frame is captured.
-    /// - Parameters:
-    ///   - output: The capture output that produced the frame.
-    ///   - sampleBuffer: The `CMSampleBuffer` containing the video frame.
-    ///   - connection: The connection from which the video frame was received.
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
-        // Store current frame
+        // Update current frame for preview
         DispatchQueue.main.async {
             self.currentFrame = pixelBuffer
         }
         
-        // Perform pose detection if request exists
-        if let request = poseRequest {
-            let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                print("Failed to perform pose detection: \(error)")
-            }
+        // Check if we should capture this frame for analysis
+        if shouldCaptureNextFrame {
+            shouldCaptureNextFrame = false
+            analyzeFrame(pixelBuffer)
         }
     }
 }
