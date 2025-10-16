@@ -2,7 +2,7 @@
 //  CameraViewModel.swift
 //  sitRight-Posture
 //
-//  Modified to handle single frame capture and analysis
+//  Modified to handle single frame capture and analysis with history saving
 //
 
 import SwiftUI
@@ -57,6 +57,10 @@ class CameraViewModel: ObservableObject {
                 self?.analysisResultWithImage = result
                 if result != nil {
                     self?.captureSuccessful = true
+                    // Save to history when analysis completes
+                    if let result = result {
+                        self?.handleAnalysisComplete(result)
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -68,7 +72,8 @@ class CameraViewModel: ObservableObject {
             .sink { [weak self] userInfo in
                 // Handle the notification if needed
                 if let result = userInfo["result"] as? AnalysisResultWithImage {
-                    self?.handleAnalysisComplete(result)
+                    // Additional processing if needed
+                    print("Received analysis completion notification")
                 }
             }
             .store(in: &cancellables)
@@ -132,9 +137,13 @@ class CameraViewModel: ObservableObject {
     // MARK: - Private Methods
     /// Handles the completion of analysis
     private func handleAnalysisComplete(_ result: AnalysisResultWithImage) {
+        // Save to history
+        HistoryManager.shared.saveAnalysisResult(result)
+        
         // Any additional processing after analysis completes
         print("Analysis complete for \(result.postureType.rawValue)")
         print("Status: \(result.status)")
         print("Severity: \(result.severity)")
+        print("Result saved to history")
     }
 }
